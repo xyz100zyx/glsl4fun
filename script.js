@@ -1,3 +1,7 @@
+function doAlertMessage(message) {
+  alert(message);
+}
+
 (() => {
   window.addEventListener("load", () => {
     const canvas = document.querySelector("canvas");
@@ -17,63 +21,67 @@
   `;
 
     const fragmentShaderSrc = `#version 300 es
-    precision mediump float;
+
+precision mediump float;
 
 uniform float iGlobalTime;
 uniform vec2 iResolution;
 
 out vec4 fragColor;
 
-#define vector_multiplying(v1, v2) cross(v1, v2)
+#define vector_multiply(v1, v2) cross(v1, v2)
+#define scalar_multiply(v1, v2) dot(v1, v2)
 #define VECTOR_PERPENDICULAR_TO_F_IN_CEVRTICAL_DIRECTION vec3(0.0, 1.0, 0.0)
 
-float getLineDistance(vec3 ro, vec3 rd, vec3 point){
-    return length(vector_multiplying(point-ro, rd)) / length(rd);
+struct Ray {
+    vec3 origin, direction;
+};
+
+Ray createRay(vec2 uv, vec3 camera, vec3 lookAt, float zoom){
+    vec3 VECTOR_F     = normalize(lookAt - camera);
+    vec3 VECTOR_RIGHT = vector_multiply(VECTOR_F, VECTOR_PERPENDICULAR_TO_F_IN_CEVRTICAL_DIRECTION);
+    vec3 VECTOR_UP    = vector_multiply(VECTOR_RIGHT, VECTOR_F);
+    vec3 center       = camera + VECTOR_F * zoom;
+
+    vec3 intersection = camera + uv.x * VECTOR_RIGHT + uv.y * VECTOR_UP;
+
+    Ray ray;
+    ray.origin        = camera;
+    ray.direction     = normalize(intersection - camera);
+
+    return ray;
+
 }
 
-float getPointColor(vec3 ro, vec3 rd, vec3 point){
-    float d = getLineDistance(ro, rd, point);
-    d = smoothstep(.06, .05, d);
-    return d;
+vec3 getClosestPoint(Ray ray, vec3 point){
+    return ray.origin + max(0.0, scalar_multiply(point-ray.origin, ray.direction));
 }
 
+float getRay2PointDistance(Ray ray, vec3 point){
+    return length(point - getClosestPoint(ray, point));
+}
 
 void main(){
 
-    vec2 uv = gl_FragCoord.xy / iResolution.xy;
+    vec2 uv           = gl_FragCoord.xy / iResolution.xy;
+    uv               -= 0.5;
+    uv.x             *= iResolution.x / iResolution.y;
 
-    uv -= 0.5;
+    vec3 camera       = vec3(0.0, 2.0, 0.0);
+    vec3 lookAt       = vec3(0.0, 2.0, 1.0);
 
-    uv.x *= iResolution.x / iResolution.y;
+    Ray ray           = createRay(uv, camera, lookAt, 2.0);
 
-    vec3 rayOrigin = vec3(3.*sin(iGlobalTime), 2., -3.*cos(iGlobalTime));
-    vec3 lookAt = vec3(0.5);
+    vec3 point        = vec3(0.0, 0.0, 5.0);
 
-    float zoom = 1.0;
+    float distance    = getRay2PointDistance(ray, point);
 
-    vec3 VECTOR_F     = normalize(lookAt - rayOrigin);
-    vec3 VECTOR_RIGHT = vector_multiplying(VECTOR_PERPENDICULAR_TO_F_IN_CEVRTICAL_DIRECTION, VECTOR_F);
-    vec3 VECTOR_UP    = vector_multiplying(VECTOR_F, VECTOR_RIGHT);
+    float color       = smoothstep(.1, 0.09, distance);
 
-    vec3 VECTOR_C     = rayOrigin + VECTOR_F * zoom;
-    vec3 i            = VECTOR_C + uv.x * VECTOR_RIGHT + uv.y * VECTOR_UP;
-    vec3 rd           = i - rayOrigin; 
+    fragColor         = vec4(color);
 
-    
-    float d = 0.0;
-    
-    d += getPointColor(rayOrigin, rd, vec3(0., 0., 0.));
-    d += getPointColor(rayOrigin, rd, vec3(0., 0., 1.));
-    d += getPointColor(rayOrigin, rd, vec3(0., 1., 0.));
-    d += getPointColor(rayOrigin, rd, vec3(0., 1., 1.));
-    d += getPointColor(rayOrigin, rd, vec3(1., 0., 0.));
-    d += getPointColor(rayOrigin, rd, vec3(1., 0., 1.));
-    d += getPointColor(rayOrigin, rd, vec3(1., 1., 0.));
-    d += getPointColor(rayOrigin, rd, vec3(1., 1., 1.));
-    
-    
-	fragColor = vec4(d);
 }
+
   `;
 
     const gl = canvas.getContext("webgl2");
@@ -98,17 +106,17 @@ void main(){
     gl.attachShader(program, fragmentShader);
 
     if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
-      console.log("err vert shader: ", gl.getShaderInfoLog(vertexShader));
+      doAlertMessage("err vert shader: ", gl.getShaderInfoLog(vertexShader));
     }
 
     if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-      console.log("err fr shader: ", gl.getShaderInfoLog(fragmentShader));
+      doAlertMessage("err fr shader: ", gl.getShaderInfoLog(fragmentShader));
     }
 
     gl.linkProgram(program);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      console.log("err pr link: ", gl.getProgramInfoLog(program));
+      doAlertMessage("err pr link: ", gl.getProgramInfoLog(program));
     }
 
     gl.useProgram(program);
