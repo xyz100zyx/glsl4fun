@@ -32,7 +32,7 @@ Ray createRay(vec2 uv, vec3 camera, vec3 lookAt, float zoom){
 }
 
 vec3 getClosestPoint(Ray ray, vec3 point){
-    return ray.origin + max(0.0, scalar_multiply(point-ray.origin, ray.direction));
+    return ray.origin + max(0.0, scalar_multiply(point-ray.origin, ray.direction)) * ray.direction;
 }
 
 float getRay2PointDistance(Ray ray, vec3 point){
